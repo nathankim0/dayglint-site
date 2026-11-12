@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Dayglint · Dayglint</title>
+<meta name="description" content="One line a day">
+<style>
+  :root { --bg:#F6F1E7; --ink:#24211D; --soft:#6F675D; --accent:#A8741A; --line:#E2D9C8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14120F; --ink:#EFE8DC; --soft:#A89F92; --line:#2E2A24; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 20px 96px; }
+  header a { color: var(--ink); text-decoration: none; font-weight: 800; font-size: 20px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 40px 0 8px; letter-spacing: -0.02em; }
+  h2 { font-size: 20px; margin: 36px 0 8px; }
+  p, li { color: var(--ink); }
+  .meta { color: var(--soft); font-size: 15px; }
+  a { color: var(--accent); }
+  ul { padding-left: 22px; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--soft); font-size: 15px; display:flex; gap:18px; flex-wrap:wrap; }
+  footer a { color: var(--soft); }
+</style>
+</head>
+<body>
+<main>
+<header><a href="/dayglint-site/">Dayglint</a></header>
+
+<h1>Dayglint</h1>
+<p id="description">One line a day</p>
+<div class="actions">
+  <a id="app-store" href="https://apps.apple.com/app/id6833823369">App Store</a>
+  <a id="google-play" href="https://play.google.com/store/apps/details?id=com.jinyeob.dayglint">Google Play</a>
+</div>
+<p id="installed" class="meta">Already installed?</p>
+<div class="actions"><a id="open-app" href="dayglint://home">Open Dayglint</a></div>
+<p id="hint" class="meta">Install the app, then open this link again.</p>
+<style>
+  .actions { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
+  .actions a { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:10px 20px; border:1px solid var(--accent); border-radius:12px; font-weight:600; text-decoration:none; }
+  .actions a:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
+</style>
+<script>
+/** Public link contract. Also compiled into the static fallback page; keep this module platform-free. */
+const LINK_SCHEME = 'dayglint';
+const LINK_HOST = 'nathankim0.github.io';
+const LINK_PREFIX = '/dayglint-site/open';
+const DAILY_REMINDER_PATH = '/entry';
+const PUBLIC_ROUTES = {
+    '': '/',
+    home: '/',
+    today: '/',
+    paywall: '/paywall',
+    account: '/account',
+    settings: '/settings',
+    entry: '/entry',
+    search: '/search',
+    calendar: '/calendar',
+    insights: '/insights',
+};
+/** Reject unknown paths/parameters instead of forwarding them to Expo Router. Never throws. */
+function resolveDeepLink(input, now = new Date()) {
+    try {
+        if (typeof input !== 'string' || input.length > 2048 || /[\s\\\u0000-\u001f]/.test(input))
+            return '/';
+        // URL normalizes dot segments before we can validate them. Reject those and encoded paths first.
+        const rawPath = input.split(/[?#]/, 1)[0];
+        if (rawPath.includes('%') || /(?:^|\/)\.{1,2}(?:\/|$)/.test(rawPath))
+            return '/';
+        let url;
+        let path;
+        if (input.startsWith('/') && !input.startsWith('//')) {
+            url = new URL(input, 'https://internal.invalid');
+            path = url.pathname;
+        }
+        else {
+            url = new URL(input);
+            if (url.username || url.password || url.port)
+                return '/';
+            if (url.protocol === `${LINK_SCHEME}:`) {
+                path = url.hostname ? `/${url.hostname}${url.pathname}` : url.pathname;
+            }
+            else if (url.protocol === 'https:' && url.hostname === LINK_HOST) {
+                if (url.pathname !== LINK_PREFIX && !url.pathname.startsWith(`${LINK_PREFIX}/`))
+                    return '/';
+                path = url.pathname.slice(LINK_PREFIX.length);
+            }
+            else
+                return '/';
+        }
+        if (url.hash || path.includes('//'))
+            return '/';
+        const key = path.replace(/^\//, '').replace(/\/$/, '');
+        if (!Object.prototype.hasOwnProperty.call(PUBLIC_ROUTES, key))
+            return '/';
+        const target = PUBLIC_ROUTES[key];
+        const params = [...url.searchParams.entries()];
+        if (params.length === 0)
+            return target;
+        if (key === 'entry' && params.length === 1 && params[0][0] === 'date') {
+            const date = params[0][1];
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < '1970-01-01')
+                return '/';
+            const parsed = new Date(`${date}T12:00:00Z`);
+            if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date)
+                return '/';
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            if (date > today)
+                return '/';
+            return `/entry?date=${date}`;
+        }
+        return '/';
+    }
+    catch {
+        return '/';
+    }
+}
+
+const target = resolveDeepLink(window.location.href);
+document.getElementById('open-app').href = LINK_SCHEME + '://' + (target === '/' ? 'home' : target.slice(1));
+const language = (navigator.languages || [navigator.language]).find((value) => /^(ko|en)(-|$)/i.test(value)) || 'en';
+if (/^ko/i.test(language)) {
+  document.documentElement.lang = 'ko';
+  document.getElementById('description').textContent = "하루 한 줄로 오늘을 기록해요.";
+  document.getElementById('installed').textContent = '앱을 이미 설치했나요?';
+  document.getElementById('open-app').textContent = "Dayglint 열기";
+  document.getElementById('hint').textContent = '앱을 설치한 뒤 이 링크를 다시 열어 주세요.';
+}
+</script>
+
+<footer>
+  <a href="/dayglint-site/privacy.html">Privacy</a>
+  <a href="/dayglint-site/terms.html">Terms</a>
+  <a href="mailto:contact@bible-habit.com">contact@bible-habit.com</a>
+</footer>
+</main>
+</body>
+</html>
