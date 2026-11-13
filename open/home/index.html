@@ -41,11 +41,16 @@
   .actions a:focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
 </style>
 <script>
-/** Public link contract. Also compiled into the static fallback page; keep this module platform-free. */
+/**
+ * Public link contract. Also imported by `af check` and compiled into the static fallback page by `af site` under
+ * plain Node, so keep this module free of React Native and of npm imports.
+ */
 const LINK_SCHEME = 'dayglint';
 const LINK_HOST = 'nathankim0.github.io';
 const LINK_PREFIX = '/dayglint-site/open';
+/** Where the daily reminder notification opens. */
 const DAILY_REMINDER_PATH = '/entry';
+/** Every path a link may open. Anything else lands on home. */
 const PUBLIC_ROUTES = {
     '': '/',
     home: '/',
